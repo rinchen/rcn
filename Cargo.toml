@@ -2,7 +2,7 @@
 name = "rcn"
 version = "1.0.0"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.86"
 description = "Leveled Rust compressor (wire LZ, byte CM, hybrid BWT/CM) aiming to win ratio and compress speed vs each peer class"
 license = "MIT"
 readme = "README.md"
@@ -12,7 +12,7 @@ repository = "https://github.com/rinchen/rcn"
 clap = { version = "4", features = ["derive"] }
 byteorder = "1"
 crc32fast = "1"
-thiserror = "1"
+thiserror = "2"
 ans = "0.4.0"
 divsufsort = "2"
 mimalloc = "0.1"
@@ -27,7 +27,7 @@ no_avx2 = []
 bwt_libsais = ["dep:libsais-rs"]
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8"
 
 [profile.release]
 opt-level = 3

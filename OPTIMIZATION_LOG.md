@@ -95,6 +95,7 @@ Ideas from an external list that **collide with closed ticket IDs**. Status vs t
 - AVX2 (x86_64) / NEON (aarch64) SIMD walk_dist (scalar fallback + parity tests; CI uses `no_avx2`)
 - Global XWRT on Text trials; DP-LZP literal-skip with match side-stream
 - Parallel Text/Random block encode (W3)
+
 ### Correctness / container hardening (2026-09-11)
 
 - Structured BWT decode (JSON/CSV/XML/XWRT) returns `RcnError` on truncated or invalid payloads (no silent empty `Vec`)
