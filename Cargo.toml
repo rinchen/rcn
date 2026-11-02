@@ -9,12 +9,12 @@ readme = "README.md"
 repository = "https://github.com/rinchen/rcn"
 
 [dependencies]
-clap = { version = "4", features = ["derive"] }
-byteorder = "1"
-crc32fast = "1"
+clap = { version = "4.5.5", features = ["derive"] }
+byteorder = "1.5"
+crc32fast = "1.5"
 thiserror = "2"
-ans = "0.4.0"
-divsufsort = "2"
+ans = "0.4"
+divsufsort = "2.0"
 mimalloc = "0.1"
 rayon = "1"
 libsais-rs = { version = "0.2.2", default-features = false, optional = true }
@@ -28,29 +28,3 @@ bwt_libsais = ["dep:libsais-rs"]
 
 [dev-dependencies]
 criterion = "0.8"
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-panic = "abort"
-strip = "symbols"
-
-# Symbol-friendly release build for macOS `sample` / Instruments (V3).
-[profile.release-prof]
-inherits = "release"
-strip = "none"
-debug = 1
-
-[[bin]]
-name = "rcn"
-path = "src/main.rs"
-
-[[bench]]
-name = "throughput"
-harness = false
-
-[lints.clippy]
-all = "warn"
-pedantic = "warn"
-nursery = "warn"
