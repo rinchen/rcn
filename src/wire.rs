@@ -36,6 +36,36 @@ fn match_len_scalar(data: &[u8], a: usize, b: usize, max: usize) -> usize {
     n
 }
 
+/// AVX2-accelerated match length comparison (x86_64 only).
+/// Compares up to 32 bytes per iteration using AVX2 vector operations.
+/// Compiled when `target_arch = "x86_64"` and AVX2 is available at runtime.
+#[inline]
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn match_len_avx2(data: &[u8], a: usize, b: usize, max: usize) -> usize {
+    use std::arch::x86_64::*;
+
+    let mut i = 0usize;
+    while i + 32 <= max {
+        let v1 = _mm256_loadu_si256(data.as_ptr().add(a + i) as *const __m256i);
+        let v2 = _mm256_loadu_si256(data.as_ptr().add(b + i) as *const __m256i);
+        // _mm256_cmpeq_epi8 returns 0xFF per matching byte.
+        let eq = _mm256_cmpeq_epi8(v1, v2);
+        // Move mask to get a 32-bit bitmask of matching bytes.
+        let mask = _mm256_movemask_epi8(eq) as u32;
+        // If mask == 0xFFFFFFFF, all 32 bytes equal.
+        if mask == 0xFFFF_FFFFu32 {
+            i += 32;
+        } else {
+            // Find first zero bit = first differing byte.
+            let first_diff = (!mask).trailing_zeros() as usize;
+            return i + first_diff;
+        }
+    }
+    // Remaining bytes (< 32) — scalar fallback.
+    match_len_scalar(data, a + i, b + i, max - i) + i
+}
+
 /// NEON-accelerated match length comparison (aarch64 only).
 /// Compares up to 16 bytes per iteration using NEON vector operations.
 /// On Apple aarch64 macOS, NEON is always available — this path is compiled
@@ -67,14 +97,22 @@ unsafe fn match_len_neon(data: &[u8], a: usize, b: usize, max: usize) -> usize {
     match_len_scalar(data, a + i, b + i, max - i) + i
 }
 
-/// Match length: NEON on aarch64, scalar elsewhere.
+/// Match length: AVX2 on x86_64, NEON on aarch64, scalar elsewhere.
 #[inline]
 fn match_len(data: &[u8], a: usize, b: usize, max: usize) -> usize {
+    #[cfg(target_arch = "x86_64")]
+    {
+        if std::arch::is_x86_feature_detected!("avx2") {
+            unsafe { match_len_avx2(data, a, b, max) }
+        } else {
+            match_len_scalar(data, a, b, max)
+        }
+    }
     #[cfg(target_arch = "aarch64")]
     {
         unsafe { match_len_neon(data, a, b, max) }
     }
-    #[cfg(not(target_arch = "aarch64"))]
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
     {
         match_len_scalar(data, a, b, max)
     }

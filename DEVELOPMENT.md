@@ -102,7 +102,7 @@ North star is no longer ratio-only. Each level must beat its peer class on
 Do not reopen Text Indirect / Binary DP≥24 / Order-12 without ≥0.3pt evidence.
 Binary-only Indirect was A/B'd (W5) and **killed** (mr regression).
 
-Next levers: **faster `-1` wire LZ (chain depth 3→4 in wire.rs)**; PGO build for `-9` binary; `-3` BWT budget vs gzip.
+Next levers: faster `-1` wire LZ (chain depth 3→4 + AVX2/NEON SIMD in wire.rs — **T5 done, tests pass**); PGO build for `-9` binary (**T4 blocked — Apple llvm-profdata mismatch**); `-3` BWT budget (**T3 done**); binary DP window 4→8 MiB (**T2 done**); wire chain 3→4 (**T1 done**).
 
 ---
 
