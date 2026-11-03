@@ -22,8 +22,11 @@ const FLAG_FSE: u8 = 1;
 
 #[inline]
 fn hash4(data: &[u8], i: usize) -> usize {
+    // MurmurHash3-inspired 32-bit mix for better distribution on structured data
     let v = u32::from_le_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]]);
-    (v.wrapping_mul(0x9E37_79B1) >> (32 - HASH_LOG)) as usize
+    let h = v.wrapping_mul(0xC2B2AE3D);
+    let h = (h ^ (h >> 16)).wrapping_mul(0xC2B2AE3D);
+    (h >> (32 - HASH_LOG)) as usize
 }
 
 /// Scalar byte-by-byte match length (portable fallback).
