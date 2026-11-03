@@ -3,8 +3,9 @@
 Raw ratio and throughput numbers. Win/lose charts live in
 [README.md](README.md#scorecards).
 
-Host: release `rcn` 0.2.1, macOS, Apple Silicon (ARM64, NEON `walk_dist`),
-2026-09-12, `.work/bench5/` (dickens/webster/nci/mr/json). Level
+Host: release `rcn`, macOS, Apple Silicon (ARM64, NEON `walk_dist`),
+2026-11-03, `.work/bench5/` refreshed with updated wire LZ chain (T1),
+Binary DP-LZP match window (T2), and General BWT trials (T3). Level
 `-9`/`fast`/`-19` ratios and speeds match the 2026-09-11 W1–W7 refresh
 unless noted. Level `-1`/`-3` and peer cmp MB/s from 2026-09-12. Peer
 ratios from the 2026-09-11 `SKIP_RCN=1` pass.
