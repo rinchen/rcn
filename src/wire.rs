@@ -13,7 +13,7 @@ const HASH_SIZE: usize = 1 << HASH_LOG;
 const MIN_MATCH: usize = 4;
 const WINDOW: usize = 65_535;
 const MAX_MATCH: usize = 65_535;
-const CHAIN: usize = 3;
+const CHAIN: usize = 4;
 
 /// Payload flag: raw LZ tokens.
 const FLAG_RAW: u8 = 0;
