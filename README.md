@@ -33,8 +33,9 @@ ratio. Peers themselves do not do that. Levels own a peer class each.
 
 Verdict cells are `ratio / cmp-speed / both`. `both=win` only if ratio is
 win or tie **and** cmp speed is win. json near-zero ratios are ties.
-Measured numbers: [BENCHMARKS.md](BENCHMARKS.md).
-Regenerate: `scripts/bench_vs_sota.sh <corpus_dir>`.
+Measured numbers: [BENCHMARKS.md](BENCHMARKS.md). Refreshed 2026-11-03
+(T1 wire chain, T2 DP window, T3 BWT trial). Regenerate:
+`scripts/bench_vs_sota.sh <corpus_dir>`.
 
 **rcn `-1` vs speed peers:**
 

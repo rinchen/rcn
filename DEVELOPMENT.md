@@ -5,9 +5,9 @@ For product overview and win/lose charts, see [README.md](README.md).
 Measured numbers: [BENCHMARKS.md](BENCHMARKS.md).
 Ticket tables also live in [OPTIMIZATION_LOG.md](OPTIMIZATION_LOG.md).
 
-Last updated: 2026-09-12. Test status: see `cargo test --lib` / CI. Headline
+Last updated: 2026-11-03. Test status: see `cargo test --lib` / CI. Headline
 benches: W1–W7 on 2026-09-11; levels `-1`/`-3` + dual scorecards on
-2026-09-12 (see [BENCHMARKS.md](BENCHMARKS.md)).
+2026-09-12; T1–T3 2026-11-03 (wire chain, DP window, BWT trial) (see [BENCHMARKS.md](BENCHMARKS.md)).
 
 ---
 
