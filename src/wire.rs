@@ -13,7 +13,7 @@ const HASH_SIZE: usize = 1 << HASH_LOG;
 const MIN_MATCH: usize = 4;
 const WINDOW: usize = 65_535;
 const MAX_MATCH: usize = 65_535;
-const CHAIN: usize = 3;
+const CHAIN: usize = 4;
 
 /// Payload flag: raw LZ tokens.
 const FLAG_RAW: u8 = 0;
@@ -26,13 +26,58 @@ fn hash4(data: &[u8], i: usize) -> usize {
     (v.wrapping_mul(0x9E37_79B1) >> (32 - HASH_LOG)) as usize
 }
 
-#[inline]
-fn match_len(data: &[u8], a: usize, b: usize, max: usize) -> usize {
-    let mut n = 0;
+/// Scalar byte-by-byte match length (portable fallback).
+#[inline(always)]
+fn match_len_scalar(data: &[u8], a: usize, b: usize, max: usize) -> usize {
+    let mut n = 0usize;
     while n < max && data[a + n] == data[b + n] {
         n += 1;
     }
     n
+}
+
+/// NEON-accelerated match length comparison (aarch64 only).
+/// Compares up to 16 bytes per iteration using NEON vector operations.
+/// On Apple aarch64 macOS, NEON is always available — this path is compiled
+/// unconditionally when `target_arch = "aarch64"`.
+#[inline]
+#[cfg(target_arch = "aarch64")]
+unsafe fn match_len_neon(data: &[u8], a: usize, b: usize, max: usize) -> usize {
+    use std::arch::aarch64::*;
+
+    let mut i = 0usize;
+    while i + 16 <= max {
+        let v1 = vld1q_u8(data.as_ptr().add(a + i));
+        let v2 = vld1q_u8(data.as_ptr().add(b + i));
+        let eq = vceqq_u8(v1, v2);
+        let lane_low = vgetq_lane_u64(vreinterpretq_u64_u8(eq), 0);
+        let lane_high = vgetq_lane_u64(vreinterpretq_u64_u8(eq), 1);
+        // Both 8-byte lanes all-FF means all 16 bytes equal.
+        if lane_low == 0xFFFF_FFFF_FFFFFFFFu64
+            && lane_high == 0xFFFF_FFFF_FFFFFFFFu64
+        {
+            i += 16;
+        } else {
+            // Mismatch somewhere in this 16-byte window — scalar fallback.
+            let n = match_len_scalar(data, a + i, b + i, 16.min(max - i));
+            return i + n;
+        }
+    }
+    // Remaining bytes (less than 16) — scalar.
+    match_len_scalar(data, a + i, b + i, max - i) + i
+}
+
+/// Match length: NEON on aarch64, scalar elsewhere.
+#[inline]
+fn match_len(data: &[u8], a: usize, b: usize, max: usize) -> usize {
+    #[cfg(target_arch = "aarch64")]
+    {
+        unsafe { match_len_neon(data, a, b, max) }
+    }
+    #[cfg(not(target_arch = "aarch64"))]
+    {
+        match_len_scalar(data, a, b, max)
+    }
 }
 
 /// Compress `data` to a METHOD_WIRE payload (never larger-path; caller may copy).

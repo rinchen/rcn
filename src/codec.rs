@@ -706,9 +706,29 @@ fn encode_block_general(
         append_match_hist(match_hist, block_data);
         (comp, METHOD_BYTE_CM, block_data.len())
     } else {
+        // Text: run a cheap BWT/XWRT trial on blocks ≥256KB to close `-3`
+        // vs gzip on ratio. Falls back to METHOD_BYTE_TEXT (plain byte CM)
+        // when no transform wins.
         match_hist.clear();
-        let comp = compress_byte_with_matches(block_data, kind, &[]);
-        (comp, METHOD_BYTE_TEXT, block_data.len())
+        let trial = if block_data.len() >= 256 * 1024 {
+            bwt::compress_text_with_trial(block_data, None)
+        } else {
+            bwt::BwtPathResult {
+                pipeline: bwt::BwtPipeline::RawCm,
+                encoded_size: block_data.len(),
+                is_bwt: false,
+                payload: block_data.to_vec(),
+            }
+        };
+        let transformed = trial.payload;
+        let store_len = transformed.len();
+        let comp = compress_byte_with_matches(&transformed, kind, &[]);
+        let method = if trial.is_bwt {
+            method_for_pipeline(trial.pipeline, CodecMode::General)
+        } else {
+            METHOD_BYTE_TEXT
+        };
+        (comp, method, store_len)
     }
 }
 
@@ -825,7 +845,9 @@ const BINARY_BLOCK_SIZE: usize = 1024 * 1024;
 
 /// Cross-block match history retained for Binary/Exec DP-LZP (W1). Caps lookback
 /// so dist in the side-stream can reference prior same-kind blocks.
-const MATCH_HIST_CAP: usize = 4 * 1024 * 1024;
+/// Bumped 4 MiB → 8 MiB (T2) to let the DP-LZP find longer-distance matches
+/// on binary/`mr` streams; the match window in `scan_matches` moves with it.
+const MATCH_HIST_CAP: usize = 8 * 1024 * 1024;
 
 fn append_match_hist(hist: &mut Vec<u8>, data: &[u8]) {
     hist.extend_from_slice(data);
@@ -1138,7 +1160,7 @@ fn scan_matches(block: &[u8], kind: crate::classify::BlockKind, hist: &[u8]) -> 
     };
     // Match record overhead: 1 (flag) + 8 (len) + 24 (dist) = 33 bits.
     const MATCH_OVERHEAD_BITS: f64 = 33.0;
-    let window = 4 * 1024 * 1024;
+    let window = 8 * 1024 * 1024;
 
     // Combined stream: prior same-kind history || current block (W1). Match
     // positions are reported relative to the block start; distances may reach
@@ -1208,7 +1230,7 @@ fn find_match_distance(data: &[u8], pos: usize, len: usize) -> usize {
         return 0;
     }
     let needle = &data[pos - len..pos];
-    let window = 4 * 1024 * 1024;
+    let window = 8 * 1024 * 1024;
     let start = pos.saturating_sub(window);
     for back in (start..pos - len + 1).rev() {
         if data[back..back + len] == *needle {

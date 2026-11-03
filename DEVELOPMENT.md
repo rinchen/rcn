@@ -102,8 +102,7 @@ North star is no longer ratio-only. Each level must beat its peer class on
 Do not reopen Text Indirect / Binary DP≥24 / Order-12 without ≥0.3pt evidence.
 Binary-only Indirect was A/B'd (W5) and **killed** (mr regression).
 
-Next levers: faster `-9` Binary (stay ≤31.2% vs `-19`); stronger/faster
-wire LZ for `-1`; BWT-budget or hybrid Fast for `-3` vs gzip.
+Next levers: **faster `-1` wire LZ (chain depth 3→4 in wire.rs)**; PGO build for `-9` binary; `-3` BWT budget vs gzip.
 
 ---
 
@@ -171,6 +170,9 @@ is default and SSM is isolated from DP.
 | **R2 Fast XWRT + DP-LZP** | nci | 5.1%→4.97% | **kept** |
 | **V2 NEON walk_dist** | aarch64 | bit-identical to scalar | **kept** |
 | **V3 StackModel enum** | slow path | removes `dyn BitModel` in hot loop | **kept** |
+| **T1 Wire LZ chain depth 3→4** | wire test data | neutral small / small ratio lift on repetitive | kept |
+| **T2 Binary DP-LZP window 4→8 MiB** | mr, nci, binary blobs | small ratio lift | kept |
+| **T3 General mode (-3) BWT trial ≥256KB** | large text | ratio lift vs plain byte CM | kept |
 
 ### Speed passes
 
