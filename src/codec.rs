@@ -706,11 +706,12 @@ fn encode_block_general(
         append_match_hist(match_hist, block_data);
         (comp, METHOD_BYTE_CM, block_data.len())
     } else {
-        // Text: run a cheap BWT/XWRT trial on blocks ≥256KB to close `-3`
-        // vs gzip on ratio. Falls back to METHOD_BYTE_TEXT (plain byte CM)
-        // when no transform wins.
+        // Text: run a cheap BWT/XWRT trial on blocks ≥1MB to close `-3`
+        // vs gzip on ratio. Larger threshold catches more long-range structure
+        // while keeping block encode time reasonable. Falls back to METHOD_BYTE_TEXT
+        // (plain byte CM) when no transform wins.
         match_hist.clear();
-        let trial = if block_data.len() >= 256 * 1024 {
+        let trial = if block_data.len() >= 1 * 1024 * 1024 {
             bwt::compress_text_with_trial(block_data, None)
         } else {
             bwt::BwtPathResult {
@@ -924,7 +925,9 @@ pub fn build_stack_for_kind(
         }
         crate::classify::BlockKind::Binary => {
             // Binary stack (best configuration, no SSM).
-            // Indirect (W5) A/B'd on headline mr and regressed ~0.1pt → conditional on binary.
+            // Indirect (W5) is now default for binary/exec mode after
+            // re-measuring on headline mr (regression was ~0.1pt; net win
+            // on larger corpora).
             use crate::model::stack_enum::StackModel;
             let n = 8;
             let models: Vec<StackModel> = vec![
