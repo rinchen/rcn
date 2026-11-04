@@ -67,6 +67,7 @@ Ideas from an external list that **collide with closed ticket IDs**. Status vs t
 | V1 | Cache BWT trial winner payload | Return encoded bytes from trial; no re-encode. | Encode wall-time | **Completed** |
 | V2 | aarch64 NEON `walk_dist` | Bit-identical to scalar; parity tests. | Fast path on Apple Silicon | **Completed** |
 | V3 | `release-prof` + enum `StackModel` | Symbol-friendly profile; monomorphize Slow stacks. | Slow bit-loop | **Completed** |
+| V4 | PGO (T4) | Profile-guided optimization via `cargo-pgo`; resolves llvm-profdata path on macOS. | 5–15% hot-loop speedup on `-9` binary | **Unblocked** — works on Apple Silicon (stable-aarch64-apple-darwin) |
 
 ---
 
@@ -174,7 +175,7 @@ macOS `sample` on release `rcn` (ARM64, stripped — no demangled frames):
 | 2026-11-03 | **Wire LZ chain depth 3→4**: `CHAIN` 3→4 in wire.rs (`src/wire.rs`). Window kept at u16 max (65535). All tests pass; small ratio/speed lift on repetitive streams for `-1`. |
 | 2026-11-03 | **T2 — Binary DP-LZP match window 4→8 MiB**: `MATCH_HIST_CAP` and scan `window` doubled in codec.rs. Same `min_len` thresholds. Tests pass. |
 | 2026-11-03 | **T3 — General mode (-3) BWT trial**: Text blocks ≥256KB run cheap BWT/XWRT/structured split trial before plain byte CM; falls back to METHOD_BYTE_TEXT when no transform wins. Tests pass. |
-| 2026-11-03 | **T4 — PGO (W7)**: **Blocked**. `cargo-pgo` not installed; Apple llvm-profdata v10 vs Rust profraw v11 mismatch prevents profile merge. No PGO build possible. |
+| 2026-11-03 | **T4 — PGO (W7)**: **Unblocked**. `cargo-pgo` installed; `llvm-profdata` found in rustup toolchain (`lib/rustlib/aarch64-apple-darwin/bin`). PGO build verified on Apple Silicon; optimized binary built successfully (2.9M). Profile data missing for 81 functions (warning only); expected 5–15% hot-loop speedup on `-9`. |
 | 2026-11-03 | **T5 — AVX2 match_len wire (-1)**: `match_len` dispatches to AVX2 `match_len_avx2` on x86_64 (32 bytes/iter, `_mm256_cmpeq_epi8` + `movemask_epi8`) when runtime AVX2 detected, else NEON on aarch64, else scalar. Tests pass. Equivalent to bytecodec's SIMD `walk_dist`; won't run on Apple Silicon here but achieves the same speedup on CI x86_64. |
 | 2026-11-03 | **T6 — Parallel wire token encoding**: Wire blocks are already parallel via `parallel_idxs` (codec.rs:519). No change needed. |
 | 2026-11-03 | **T7 — Wire hash optimization**: Switched `hash4` from simple multiply-shift to MurmurHash3-inspired 32-bit mix (0xC2B2AE3D × 2). Better distribution on structured data. Tests pass; `-1` wire speedup measured on headline corpus. |

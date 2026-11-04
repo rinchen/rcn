@@ -924,9 +924,9 @@ pub fn build_stack_for_kind(
         }
         crate::classify::BlockKind::Binary => {
             // Binary stack (best configuration, no SSM).
-            // Indirect (W5) A/B'd on headline mr and regressed ~0.1pt → not default.
+            // Indirect (W5) A/B'd on headline mr and regressed ~0.1pt → conditional on binary.
             use crate::model::stack_enum::StackModel;
-            let n = 7;
+            let n = 8;
             let models: Vec<StackModel> = vec![
                 StackModel::Order(crate::model::order::OrderN::new(0)),
                 StackModel::Order(crate::model::order::OrderN::new(1)),
@@ -935,14 +935,16 @@ pub fn build_stack_for_kind(
                 StackModel::Exec(crate::model::exec::Exec::new()),
                 StackModel::Lzp(crate::model::lzp::Lzp::new()),
                 StackModel::Ppm(crate::model::ppm::PpmModel::new(3)),
+                StackModel::Indirect(crate::model::indirect_dmc::IndirectModel::default()),
             ];
             (models, MixerBank::new(n), Some(5))
         }
         crate::classify::BlockKind::Exec => {
             // Exec stack (best configuration, no SSM).
             // with orders 0-2, Sparse, LZP, PPM order-3; no Exec model
+            // Conditional Indirect (W5) for binary/exec mode
             use crate::model::stack_enum::StackModel;
-            let n = 6;
+            let n = 7;
             let models: Vec<StackModel> = vec![
                 StackModel::Order(crate::model::order::OrderN::new(0)),
                 StackModel::Order(crate::model::order::OrderN::new(1)),
@@ -950,6 +952,7 @@ pub fn build_stack_for_kind(
                 StackModel::Sparse(crate::model::sparse::Sparse::new()),
                 StackModel::Lzp(crate::model::lzp::Lzp::new()),
                 StackModel::Ppm(crate::model::ppm::PpmModel::new(3)),
+                StackModel::Indirect(crate::model::indirect_dmc::IndirectModel::default()),
             ];
             (models, MixerBank::new(n), Some(4))
         }

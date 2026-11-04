@@ -77,15 +77,21 @@ hot loops, build with PGO (keep CI non-PGO):
 
 ```bash
 # Requires cargo-pgo: cargo install cargo-pgo
+# On macOS, llvm-profdata ships with the rustup toolchain; ensure it's on PATH:
+export PATH="$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin:$PATH"
 cargo pgo build -- --release --bin rcn
 # Instrument / run a short corpus, then:
-./target/release/rcn compress --mode hybrid path/to/dickens /tmp/out.rcn
-./target/release/rcn decompress /tmp/out.rcn /tmp/out.bin
+./target/aarch64-apple-darwin/release/rcn compress --mode hybrid path/to/dickens /tmp/out.rcn
+./target/aarch64-apple-darwin/release/rcn decompress /tmp/out.rcn /tmp/out.bin
 cargo pgo optimize -- --release --bin rcn
 ```
 
 `bwt_libsais` is now a **default** feature (W7); disable with
 `--no-default-features --features two_pass` if needed.
+
+**Status:** PGO build verified working on Apple Silicon (stable-aarch64-apple-darwin).
+The `llvm-profdata` binary in the rustup toolchain resolves the previous
+Apple llvm-profdata v10 vs Rust profraw v11 mismatch (T4 — unblocked).
 
 ## Dual-axis backlog (2026-09-12)
 
