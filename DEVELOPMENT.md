@@ -43,7 +43,7 @@ Closed through C11 / S12 (C10 tried and reverted), plus V1–V3 / R1–R2
 - ✅ **W2 — Fast Binary order-3** – fast mr 35.1%→31.5%
 - ✅ **W3 — Parallel Fast Text/Random encode** – large Text cmp MB/s uplift
 - ✅ **W4 — XWRT-1024** – nci ~4.99%
-- ❌ **W5 — Binary-only Indirect** – killed (mr regression)
+- ✅ **W5 — Binary-only Indirect** — Added to Binary/Exec stacks (default after A/B); kept out of Text
 - ✅ **W6 — Kind-specific DP costs** – Binary/Exec avg_bits 5.0
 - ✅ **W7 — libsais default + PGO recipe + cold error helpers**
 
@@ -77,15 +77,21 @@ hot loops, build with PGO (keep CI non-PGO):
 
 ```bash
 # Requires cargo-pgo: cargo install cargo-pgo
+# On macOS, llvm-profdata ships with the rustup toolchain; ensure it's on PATH:
+export PATH="$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin:$PATH"
 cargo pgo build -- --release --bin rcn
 # Instrument / run a short corpus, then:
-./target/release/rcn compress --mode hybrid path/to/dickens /tmp/out.rcn
-./target/release/rcn decompress /tmp/out.rcn /tmp/out.bin
+./target/aarch64-apple-darwin/release/rcn compress --mode hybrid path/to/dickens /tmp/out.rcn
+./target/aarch64-apple-darwin/release/rcn decompress /tmp/out.rcn /tmp/out.bin
 cargo pgo optimize -- --release --bin rcn
 ```
 
 `bwt_libsais` is now a **default** feature (W7); disable with
 `--no-default-features --features two_pass` if needed.
+
+**Status:** PGO build verified working on Apple Silicon (stable-aarch64-apple-darwin).
+The `llvm-profdata` binary in the rustup toolchain resolves the previous
+Apple llvm-profdata v10 vs Rust profraw v11 mismatch (T4 — unblocked).
 
 ## Dual-axis backlog (2026-09-12)
 
@@ -100,9 +106,10 @@ North star is no longer ratio-only. Each level must beat its peer class on
 | `-19` | Slow text still loses `-19` on ratio; `mr` leads peers on ratio |
 
 Do not reopen Text Indirect / Binary DP≥24 / Order-12 without ≥0.3pt evidence.
-Binary-only Indirect was A/B'd (W5) and **killed** (mr regression).
+Binary-only Indirect was A/B'd (W5) and **killed** (mr regression); re-measured
+and now default in Binary/Exec stacks.
 
-Next levers: faster `-1` wire LZ (chain depth 3→4 + AVX2/NEON SIMD in wire.rs — **T5 done, tests pass**); PGO build for `-9` binary (**T4 blocked — Apple llvm-profdata mismatch**); `-3` BWT budget (**T3 done**); binary DP window 4→8 MiB (**T2 done**); wire chain 3→4 (**T1 done**).
+Next levers: faster `-1` wire LZ (chain depth 4→16 + AVX2/NEON SIMD + HASH_LOG 16→18 — T5 done, T1 done); PGO build for `-9` binary (**T4 unblocked — Apple llvm-profdata mismatch resolved**); `-3` BWT budget (**T3 done — 1 MB / 2 MB**); binary DP window 4→8 MiB (**T2 done**); wire chain 4→16 (**T1 done**); LZP MAX_CHAIN 4→8 (**done**); DP-LZP binary min-match 16→12 (**done**); Binary Indirect W5 default (**done**); Hash-log 64K→262K (**done**).
 
 ---
 

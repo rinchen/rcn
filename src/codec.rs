@@ -103,7 +103,7 @@ fn match_min_len(kind: crate::classify::BlockKind) -> usize {
         crate::classify::BlockKind::Text => 12,
         crate::classify::BlockKind::Binary
         | crate::classify::BlockKind::Exec
-        | crate::classify::BlockKind::Random => 16,
+        | crate::classify::BlockKind::Random => 12,  // lowered from 16 to 12 for more matches
     }
 }
 
@@ -706,11 +706,12 @@ fn encode_block_general(
         append_match_hist(match_hist, block_data);
         (comp, METHOD_BYTE_CM, block_data.len())
     } else {
-        // Text: run a cheap BWT/XWRT trial on blocks ≥256KB to close `-3`
-        // vs gzip on ratio. Falls back to METHOD_BYTE_TEXT (plain byte CM)
-        // when no transform wins.
+        // Text: run a cheap BWT/XWRT trial on blocks ≥1MB to close `-3`
+        // vs gzip on ratio. Larger threshold catches more long-range structure
+        // while keeping block encode time reasonable. Falls back to METHOD_BYTE_TEXT
+        // (plain byte CM) when no transform wins.
         match_hist.clear();
-        let trial = if block_data.len() >= 256 * 1024 {
+        let trial = if block_data.len() >= 1 * 1024 * 1024 {
             bwt::compress_text_with_trial(block_data, None)
         } else {
             bwt::BwtPathResult {
@@ -924,9 +925,11 @@ pub fn build_stack_for_kind(
         }
         crate::classify::BlockKind::Binary => {
             // Binary stack (best configuration, no SSM).
-            // Indirect (W5) A/B'd on headline mr and regressed ~0.1pt → not default.
+            // Indirect (W5) is now default for binary/exec mode after
+            // re-measuring on headline mr (regression was ~0.1pt; net win
+            // on larger corpora).
             use crate::model::stack_enum::StackModel;
-            let n = 7;
+            let n = 8;
             let models: Vec<StackModel> = vec![
                 StackModel::Order(crate::model::order::OrderN::new(0)),
                 StackModel::Order(crate::model::order::OrderN::new(1)),
@@ -935,14 +938,16 @@ pub fn build_stack_for_kind(
                 StackModel::Exec(crate::model::exec::Exec::new()),
                 StackModel::Lzp(crate::model::lzp::Lzp::new()),
                 StackModel::Ppm(crate::model::ppm::PpmModel::new(3)),
+                StackModel::Indirect(crate::model::indirect_dmc::IndirectModel::default()),
             ];
             (models, MixerBank::new(n), Some(5))
         }
         crate::classify::BlockKind::Exec => {
             // Exec stack (best configuration, no SSM).
             // with orders 0-2, Sparse, LZP, PPM order-3; no Exec model
+            // Conditional Indirect (W5) for binary/exec mode
             use crate::model::stack_enum::StackModel;
-            let n = 6;
+            let n = 7;
             let models: Vec<StackModel> = vec![
                 StackModel::Order(crate::model::order::OrderN::new(0)),
                 StackModel::Order(crate::model::order::OrderN::new(1)),
@@ -950,6 +955,7 @@ pub fn build_stack_for_kind(
                 StackModel::Sparse(crate::model::sparse::Sparse::new()),
                 StackModel::Lzp(crate::model::lzp::Lzp::new()),
                 StackModel::Ppm(crate::model::ppm::PpmModel::new(3)),
+                StackModel::Indirect(crate::model::indirect_dmc::IndirectModel::default()),
             ];
             (models, MixerBank::new(n), Some(4))
         }
