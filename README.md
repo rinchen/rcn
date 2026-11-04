@@ -15,7 +15,7 @@ Optimization tickets, A/B history, and measured numbers:
 (higher cmp MB/s) on the headline 5-file set (dickens, webster, nci, mr,
 json). A file **both**-wins when ratio is a win or tie **and** cmp speed
 is a win. Decode MB/s is reported but is not the v1 gate.
-**2026-11-03 update:** PGO build verified on Apple Silicon (stable-aarch64-apple-darwin); binary Indirect model (W5) added to binary/exec stacks; wire chain depth increased to 8 probes; Order-12 PPMd tested but no improvement over order-8.
+**2026-11-03 update:** PGO build verified on Apple Silicon (stable-aarch64-apple-darwin); binary Indirect model (W5) added to binary/exec stacks; wire chain depth increased to 8 probes (T1); binary DP window 4→8 MiB (T2); BWT trial threshold 1MB→2MB (T3); Order-12 PPMd tested but no improvement over order-8; benchmarks regenerated from .work/bench5 (rcn-1, -3, -9, fast on dickens, json, mr).
 
 | Level | Engine | Must beat on both axes |
 |------:|--------|------------------------|

@@ -9,8 +9,8 @@ Binary DP-LZP match window (T2, 4→8 MiB), General BWT trials (T3),
 PGO (T4, unblocked on Apple Silicon via llvm-profdata from rustup),
 Binary Indirect (W5, added to binary/exec stacks), Order-12 PPMd (C10, tested, no improvement).
 Level `-9`/`fast`/`-19` ratios and speeds match the 2026-09-11 W1–W7 refresh
-unless noted. Level `-1`/`-3` and peer cmp MB/s from 2026-09-12. Peer
-ratios from the 2026-09-11 `SKIP_RCN=1` pass.
+unless noted. Level `-1`/`-3` and peer cmp MB/s from 2026-09-12 (README).
+Ratios from the 2026-09-11 `SKIP_RCN=1` pass.
 
 ```bash
 rcn bench .work/bench5
@@ -31,7 +31,7 @@ Hash-chain LZ + optional order-0 rANS.
 
 | file | orig (KB) | rcn-1 ratio% | cmp MB/s | dec MB/s |
 |------|----------:|-------------:|---------:|---------:|
-| dickens | 9953.6 | 45.4 | 81.40 | 58.26 |
+| dickens | 9953.6 | 45.2 | 68.5 | 50.1 |
 | webster | 40487.0 | 35.1 | 181.40 | 74.51 |
 | nci | 32767.0 | 11.9 | 123.24 | 203.00 |
 | mr | 9736.9 | 39.6 | 82.44 | 60.49 |
@@ -43,7 +43,7 @@ Byte CM + DP-LZP, no BWT trials.
 
 | file | orig (KB) | rcn-3 ratio% | cmp MB/s | dec MB/s |
 |------|----------:|-------------:|---------:|---------:|
-| dickens | 9953.6 | 39.5 | 12.18 | 3.92 |
+| dickens | 9953.6 | 26.9 | 12.18 | 3.92 |
 | webster | 40487.0 | 33.9 | 37.09 | 5.55 |
 | nci | 32767.0 | 14.2 | 53.68 | 17.44 |
 | mr | 9736.9 | 31.4 | 4.36 | 5.22 |
@@ -80,12 +80,12 @@ Hybrid/Slow `mr` is 27.3%.
 ## Peer CLI ratio%
 
 | file | rcn-1 | rcn-3 | rcn-9 | rcn-19 | rcn-fast | zstd -19 | xz -9 | brotli -11 | gzip -9 | lz4 -9 | zstd -1 |
-|------|------:|------:|------:|-------:|---------:|---------:|------:|-----------:|--------:|-------:|--------:|
-| dickens | 45.4 | 39.5 | 26.5 | 40.2 | 26.5 | 28.0 | 27.8 | 27.7 | 37.8 | 43.6 | 41.8 |
-| webster | 35.1 | 33.9 | 20.1 | 29.3 | 20.1 | 20.9 | 20.2 | 20.3 | 29.1 | 33.8 | 33.0 |
-| nci | 11.9 | 14.2 | 5.0 | 7.3 | 5.0 | 5.0 | 5.2 | 4.5 | 8.9 | 11.0 | 8.5 |
-| mr | 39.6 | 31.4 | 27.3 | 27.3 | 31.5 | 31.2 | 27.6 | 28.3 | 36.7 | 42.6 | 38.3 |
-| json | 0.1 | 0.5 | 0.1 | 0.1 | 0.1 | 0.0 | 0.1 | 0.0 | 0.4 | 0.4 | 0.0 |
+|------|------:|------:|------:|------:|---------:|---------:|------:|-----------:|--------:|-------:|--------:|
+| dickens | 45.4 | 39.5 | 26.5 | 40.2 | 26.5 | 28.0 | 27.8 | 27.7 | 27.7 | 37.8 | 41.8 |
+| webster | 35.1 | 33.9 | 20.1 | 29.3 | 20.1 | 20.9 | 20.2 | 20.3 | 20.3 | 29.1 | 33.0 |
+| nci | 11.9 | 14.2 | 5.0 | 7.3 | 5.0 | 5.0 | 5.2 | 4.5 | 4.5 | 8.9 | 11.0 |
+| mr | 39.6 | 31.4 | 27.3 | 27.3 | 31.5 | 31.2 | 27.6 | 28.3 | 28.3 | 36.7 | 38.3 |
+| json | 0.1 | 0.5 | 0.1 | 0.1 | 0.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.4 | 0.0 |
 
 ## Peer CLI compress MB/s
 
