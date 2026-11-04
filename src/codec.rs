@@ -103,7 +103,7 @@ fn match_min_len(kind: crate::classify::BlockKind) -> usize {
         crate::classify::BlockKind::Text => 12,
         crate::classify::BlockKind::Binary
         | crate::classify::BlockKind::Exec
-        | crate::classify::BlockKind::Random => 16,
+        | crate::classify::BlockKind::Random => 12,  // lowered from 16 to 12 for more matches
     }
 }
 

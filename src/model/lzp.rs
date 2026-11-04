@@ -25,7 +25,7 @@ use super::ByteAssembler;
 const MIN_MATCH: usize = 4;
 const TABLE_BITS: u32 = 19; // 512K entries
 const TABLE_SIZE: usize = 1 << TABLE_BITS;
-const MAX_CHAIN: usize = 4; // walk at most 4 candidates per lookup
+const MAX_CHAIN: usize = 8; // walk at most 8 candidates per lookup
 const DEFAULT_WINDOW: usize = 32 * 1024 * 1024; // 32MB sliding window
 const HISTORY_CAP: usize = 1 << 16; // 64K byte ring (only need last-4 for hashing + near-distance lookups)
 const NEXT_SIZE: usize = 1 << 21; // 2M entry chain-link table — index by position % NEXT_SIZE
