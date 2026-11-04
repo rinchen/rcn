@@ -8,8 +8,8 @@
 use crate::entropy::side_fse;
 use crate::error::{RcnError, Result};
 
-const HASH_LOG: usize = 16;
-const HASH_SIZE: usize = 1 << HASH_LOG;
+const HASH_LOG: usize = 18;  // increased from 16 to 18 for larger hash table (262K entries)
+const HASH_SIZE: usize = 1 << HASH_LOG;  // 262144 buckets
 const MIN_MATCH: usize = 4;
 const WINDOW: usize = 65_535;
 const MAX_MATCH: usize = 65_535;
