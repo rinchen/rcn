@@ -850,7 +850,7 @@ pub struct BwtPathResult {
 /// go straight to raw CM. Below ~1 MB the transformed-size comparison rarely pays
 /// for the BWT construction + two extra full-CM passes. JSON is exempt — its
 /// stream-split win is large enough that trialing it from 256 KB up is worth it.
-const TRIAL_MIN_LEN: usize = 1 << 20; // 1 MB
+const TRIAL_MIN_LEN: usize = 2 * 1024 * 1024; // 2 MB
 /// Blocks remaining above this trial threshold but near-random skip all trials.
 /// (Text passed the classifier at shannon < 7.9, but rich-but-near-random text
 /// gains nothing from BWT's long-range reordering.)
