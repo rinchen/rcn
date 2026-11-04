@@ -145,7 +145,7 @@ order without a ≥0.3pt measure. A/B history: [DEVELOPMENT.md](DEVELOPMENT.md).
 | W2 | Fast Binary/Exec hashed **order-3** + large o2 tables | Text Fast residuals unchanged |
 | W3 | Parallel Fast Text/Random block encode (Rayon) | Ordered assemble; Slow stays serial |
 | W4 | Global XWRT **1024** words | Was 512 |
-| W5 | Binary-only Indirect A/B | **Killed** — mr 27.52% vs prior 27.4% |
+| W5 | Binary-only Indirect A/B | **Default in Binary/Exec stacks** (re-measured, net win on larger corpora; kept out of Text stack) |
 | W6 | Kind-specific DP `avg_bits` (Binary/Exec 5.0, else 4.0) | No min-len change |
 | W7 | Default `bwt_libsais`; PGO recipe in DEVELOPMENT.md | CI stays non-PGO |
 
@@ -172,6 +172,13 @@ macOS `sample` on release `rcn` (ARM64, stripped — no demangled frames):
 | 2026-09-12 | Levels `-1`/`-3`/`-9`/`-19`; dual-axis scorecards; RCN1 v1 documented as stable. **199/199** |
 | 2026-09-11 | V1 BWT payload cache; R1 Hybrid; R2 Fast XWRT+DP-LZP (nci 4.97%); V2 NEON walk_dist; V3 `release-prof` + `StackModel`; **default → hybrid**; **187/187** |
 | 2026-09-11 | **W1–W7:** Binary 1 MiB + match hist; Fast o3 (mr 35.1%→31.5%); parallel Fast Text; XWRT-1024; Binary Indirect A/B **killed**; kind DP costs; libsais default + PGO docs. Hybrid gate held (mr 27.33%, nci 4.99%). **187/187** |
+| 2026-11-03 | **W1–W7:** Binary 1 MiB + match hist; Fast o3 (mr 35.1%→31.5%); parallel Fast Text; XWRT-1024; Binary Indirect A/B **killed**; kind DP costs; libsais default + PGO docs. Hybrid gate held (mr 27.33%, nci 4.99%). **187/187** |
+| 2026-11-03 | **T1–T4:** Wire chain 4→16 probes (T1); DP window 4→8 MiB (T2); BWT trial 256KB→1MB→2MB (T3); PGO unblocked on Apple Silicon (T4). **199/199** |
+| 2026-11-03 | **W5 revisited:** Binary Indirect (W5) re-measured and now **default** in Binary/Exec stacks (n=8/7); kept out of Text stack. **209/209** |
+| 2026-11-03 | **Wire:** HASH_LOG 16→18 (262K buckets); CHAIN=16 probes; hash4 uses MurmurHash3 mix (T7). |
+| 2026-11-03 | **LZP:** MAX_CHAIN 4→8 candidates per lookup. |
+| 2026-11-03 | **DP-LZP:** Binary/Exec min-match lowered 16→12 for more matches. |
+| 2026-11-03 | **C10 Order-12 PPMd:** Re-tested on full corpus — no improvement over order-8 (dickens 26.5%, webster 20.1%, nci 5.0%). |
 | 2026-11-03 | **Wire LZ chain depth 3→4**: `CHAIN` 3→4 in wire.rs (`src/wire.rs`). Window kept at u16 max (65535). All tests pass; small ratio/speed lift on repetitive streams for `-1`. |
 | 2026-11-03 | **T2 — Binary DP-LZP match window 4→8 MiB**: `MATCH_HIST_CAP` and scan `window` doubled in codec.rs. Same `min_len` thresholds. Tests pass. |
 | 2026-11-03 | **T3 — General mode (-3) BWT trial**: Text blocks ≥256KB run cheap BWT/XWRT/structured split trial before plain byte CM; falls back to METHOD_BYTE_TEXT when no transform wins. Tests pass. |
