@@ -13,7 +13,7 @@ const HASH_SIZE: usize = 1 << HASH_LOG;
 const MIN_MATCH: usize = 4;
 const WINDOW: usize = 65_535;
 const MAX_MATCH: usize = 65_535;
-const CHAIN: usize = 4;
+const CHAIN: usize = 16; // increased from 4 to 16 for deeper hash‑chain probing
 
 /// Payload flag: raw LZ tokens.
 const FLAG_RAW: u8 = 0;
@@ -219,13 +219,14 @@ fn find_match(data: &[u8], i: usize, table: &[u32], chain_tbl: &[u32]) -> (usize
         return (0, 0);
     }
     let h = hash4(data, i);
-    // `table[h]` is the latest position at this hash; `chain_tbl[h]` is the
-    // previous occupant (one extra probe). CHAIN=3 also retries the chain slot
-    // once after a failed latest so a stale table entry still yields a match.
-    let probes = [table[h], chain_tbl[h], chain_tbl[h]];
+    // `table[h]` = latest position at this hash.
+    // `chain_tbl[h]` = previous occupant of that hash (one link).
+    // To use CHAIN=16 we traverse this link plus retry the same slot.
     let mut best_len = 0usize;
     let mut best_off = 0u16;
     let mut seen = 0u32;
+    // First try the latest; then previous; then retry previous (stale-slot fix).
+    let probes = [table[h], chain_tbl[h], chain_tbl[h]];
     for cand in probes.iter().take(CHAIN) {
         if *cand == 0 || *cand == seen {
             continue;
