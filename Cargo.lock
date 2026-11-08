@@ -28,9 +28,9 @@ checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
 name = "ans"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fcf297dd1c674d47291b4ea595658ee0b2959ad1d9709c9f047832500d816a2"
+checksum = "67d5f24cc0068681a056adc8282cdb6ee1a341816d641adc4c5276361314ce1b"
 
 [[package]]
 name = "anstream"
