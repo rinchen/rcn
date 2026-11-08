@@ -13,7 +13,7 @@ clap = { version = "4.5.5", features = ["derive"] }
 byteorder = "1.5"
 crc32fast = "1.5"
 thiserror = "2"
-ans = "0.4"
+ans = "0.5"
 divsufsort = "2.0"
 mimalloc = "0.1"
 rayon = "1"
