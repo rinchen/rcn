@@ -6,7 +6,7 @@
     "lint:md": "markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#target\" \"#corpus\" \"#.work\""
   },
   "devDependencies": {
-    "markdownlint-cli2": "^0.24.0"
+    "markdownlint-cli2": "^0.24.1"
   },
   "overrides": {
     "katex": "^0.19.0"
