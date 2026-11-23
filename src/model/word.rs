@@ -238,7 +238,7 @@ impl WordModel {
         if !self.use_repar || self.prev_byte.is_none() {
             return None;
         }
-        let prev = self.prev_byte.unwrap();
+        let prev = self.prev_byte.expect("prev_byte checked above");
         if let Some(id) = self.dict.lookup([prev, byte]) {
             // Cap-fold bit: bit 0 = lowercase/original, bit 1 = uppercase variant.
             // We only substitute for lowercase bytes; uppercase bytes are passed through.

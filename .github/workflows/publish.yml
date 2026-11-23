@@ -10,6 +10,10 @@ on:
         description: "Tag to publish (e.g. v0.1.2)"
         required: true
         type: string
+    secrets:
+      CARGO_REGISTRY_TOKEN:
+        description: "crates.io API token (fallback when OIDC is unavailable)"
+        required: false
   workflow_dispatch:
     inputs:
       tag:
@@ -26,9 +30,11 @@ jobs:
     steps:
       - name: Resolve tag
         id: meta
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            TAG="${{ inputs.tag }}"
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
           else
             TAG="${GITHUB_REF#refs/tags/}"
           fi
@@ -41,13 +47,14 @@ jobs:
           esac
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ steps.meta.outputs.tag }}
 
       - name: Verify version matches Cargo.toml
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          TAG="${{ steps.meta.outputs.tag }}"
           CARGO_VERSION=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([0-9.]+)".*/\1/')
           echo "tag=$TAG cargo_version=$CARGO_VERSION"
           if [ "$TAG" != "v$CARGO_VERSION" ]; then
@@ -68,7 +75,7 @@ jobs:
       - name: Authenticate to crates.io
         id: auth
         continue-on-error: true
-        uses: rust-lang/crates-io-auth-action@v1
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
 
       - name: Publish
         env:

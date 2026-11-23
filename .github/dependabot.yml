@@ -1,5 +1,5 @@
 # Keep dependency manifests and GitHub Actions up to date.
-# See https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# See https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
@@ -7,11 +7,19 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Wait for new releases to age before proposing them, so a compromised or
+    # broken release has time to be yanked.
+    cooldown:
+      default-days: 7
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7

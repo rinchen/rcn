@@ -65,7 +65,8 @@ impl Header {
         w.push(self.version);
         w.push(self.flags);
         w.push(self.block_size_log);
-        w.write_u32::<LittleEndian>(self.num_blocks).unwrap();
+        w.write_u32::<LittleEndian>(self.num_blocks)
+            .expect("writing to an in-memory Vec cannot fail");
     }
 
     /// Parse a header (and consume the magic) from `r`.
@@ -98,10 +99,13 @@ impl BlockEntry {
     ///
     /// Never panics in practice: writing to an in-memory `Vec` cannot fail.
     pub fn write(&self, w: &mut Vec<u8>) {
-        w.write_u32::<LittleEndian>(self.comp_len).unwrap();
-        w.write_u32::<LittleEndian>(self.orig_len).unwrap();
+        w.write_u32::<LittleEndian>(self.comp_len)
+            .expect("writing to an in-memory Vec cannot fail");
+        w.write_u32::<LittleEndian>(self.orig_len)
+            .expect("writing to an in-memory Vec cannot fail");
         w.push(self.method);
-        w.write_u32::<LittleEndian>(self.crc32).unwrap();
+        w.write_u32::<LittleEndian>(self.crc32)
+            .expect("writing to an in-memory Vec cannot fail");
     }
 
     /// Parse an entry from `r`.

@@ -97,7 +97,10 @@ pub fn mtf_transform(data: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(data.len());
     let mut list: Vec<u8> = (0u8..=255).collect();
     for &b in data {
-        let pos = list.iter().position(|&x| x == b).unwrap();
+        let pos = list
+            .iter()
+            .position(|&x| x == b)
+            .expect("MTF alphabet always contains every byte");
         out.push(pos as u8);
         list.remove(pos);
         list.insert(0, b);
@@ -492,16 +495,19 @@ where
         }
         2 => {
             let mut iter = jobs.into_iter();
-            let (a, b) = (iter.next().unwrap(), iter.next().unwrap());
+            let (a, b) = (
+                iter.next().expect("jobs has exactly two entries"),
+                iter.next().expect("jobs has exactly two entries"),
+            );
             let (ra, rb) = rayon::join(a, b);
             vec![ra, rb]
         }
         3 => {
             let mut iter = jobs.into_iter();
             let (a, b, c) = (
-                iter.next().unwrap(),
-                iter.next().unwrap(),
-                iter.next().unwrap(),
+                iter.next().expect("jobs has exactly three entries"),
+                iter.next().expect("jobs has exactly three entries"),
+                iter.next().expect("jobs has exactly three entries"),
             );
             let (ra, (rb, rc)) = rayon::join(a, || rayon::join(b, c));
             vec![ra, rb, rc]
@@ -945,7 +951,7 @@ pub fn compress_text_with_trial(
     let (best_pipeline, best_payload) = candidates
         .into_iter()
         .min_by_key(|(_, payload)| payload.len())
-        .unwrap();
+        .expect("candidates always contains at least one entry");
     let best_size = best_payload.len();
 
     BwtPathResult {

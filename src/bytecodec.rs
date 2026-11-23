@@ -771,7 +771,9 @@ fn compress_block_inner(data: &[u8], runs: &[ByteMatchRun], deep: bool) -> Vec<u
                 Order::Order2 => o2.walk_dist(c2, Some(b), None),
                 Order::Order3 => {
                     let c3 = hash3(p_1, p_2, p_3) & ORDER3_MASK;
-                    o3.as_ref().unwrap().walk_dist(c3, Some(b), None)
+                    o3.as_ref()
+                        .expect("order-3 model exists when Order3 is selected")
+                        .walk_dist(c3, Some(b), None)
                 }
             };
             enc.encode_fc(wr.freq, wr.cum);
@@ -975,7 +977,9 @@ pub fn decompress_block_with_matches(
                 Order::Order2 => o2.walk_dist(c2, None, Some(cdf)),
                 Order::Order3 => {
                     let c3 = hash3(p_1, p_2, p_3) & ORDER3_MASK;
-                    o3.as_ref().unwrap().walk_dist(c3, None, Some(cdf))
+                    o3.as_ref()
+                        .expect("order-3 model exists when Order3 is selected")
+                        .walk_dist(c3, None, Some(cdf))
                 }
             };
             dec.lane_advance(lane_i, wr.freq, wr.cum);
@@ -1055,7 +1059,9 @@ fn decompress_block_plain(comp: &[u8], orig_len: usize, deep: bool) -> Result<Ve
             Order::Order2 => o2.walk_dist(c2, None, Some(cdf)),
             Order::Order3 => {
                 let c3 = hash3(p_1, p_2, p_3) & ORDER3_MASK;
-                o3.as_ref().unwrap().walk_dist(c3, None, Some(cdf))
+                o3.as_ref()
+                    .expect("order-3 model exists when Order3 is selected")
+                    .walk_dist(c3, None, Some(cdf))
             }
         };
         dec.lane_advance(lane_i, wr.freq, wr.cum);
