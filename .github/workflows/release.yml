@@ -19,12 +19,14 @@ jobs:
       tag: ${{ steps.bump_version.outputs.tag }}
       version: ${{ steps.bump_version.outputs.new_version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0  # Need full history for tagging
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: stable
 
       - name: Get current version
         id: get_version
@@ -34,10 +36,10 @@ jobs:
 
       - name: Calculate new version
         id: bump_version
+        env:
+          CURRENT_VERSION: ${{ steps.get_version.outputs.current_version }}
+          VERSION_TYPE: ${{ github.event.inputs.version-type || 'patch' }}
         run: |
-          CURRENT_VERSION=${{ steps.get_version.outputs.current_version }}
-          VERSION_TYPE=${{ github.event.inputs.version-type || 'patch' }}
-
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 
           case "$VERSION_TYPE" in
@@ -63,22 +65,26 @@ jobs:
           echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Update Cargo.toml and Cargo.lock
+        env:
+          NEW_VERSION: ${{ steps.bump_version.outputs.new_version }}
         run: |
-          NEW_VERSION=${{ steps.bump_version.outputs.new_version }}
           sed -i -E "s/^(version = \").*(\")/\1$NEW_VERSION\2/" Cargo.toml
           # Keep lockfile package version in sync so publish --locked stays clean
           cargo update -p rcn
 
       - name: Commit version bump
+        env:
+          NEW_VERSION: ${{ steps.bump_version.outputs.new_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Cargo.toml Cargo.lock
-          git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new_version }}"
+          git commit -m "chore: bump version to $NEW_VERSION"
 
       - name: Push commit and tag
+        env:
+          TAG: ${{ steps.bump_version.outputs.tag }}
         run: |
-          TAG=${{ steps.bump_version.outputs.tag }}
           git tag "$TAG"
           # Push commit first, then tag. Tag pushes from GITHUB_TOKEN do not
           # start other workflows; the publish job below is invoked explicitly.
@@ -93,7 +99,7 @@ jobs:
           PREV_TAG=$(git describe --tags --abbrev=0 ${TAG}^)
           NOTES=$(git log --format="- %s" ${PREV_TAG}..${TAG} | head -30)
           if [ -z "$NOTES" ]; then
-            NOTES="Release ${{ env.TAG }}"
+            NOTES="Release ${TAG}"
           fi
           gh release create "${TAG}" --title "rcn v${TAG#v}" --notes "$NOTES"
 
@@ -105,4 +111,5 @@ jobs:
     uses: ./.github/workflows/publish.yml
     with:
       tag: ${{ needs.release.outputs.tag }}
-    secrets: inherit
+    secrets:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

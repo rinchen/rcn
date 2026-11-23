@@ -1,0 +1,131 @@
+# Project-specific Semgrep rules for the Rust sources.
+#
+# Run together with the registry rules:
+#   semgrep scan --config auto --config .semgrep.yml --error
+#
+# These rules intentionally target the library crate (`src/`). Binaries and
+# examples are allowed to panic/exit/print because that is their job.
+rules:
+  - id: rust-no-bare-unwrap
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Avoid bare `.unwrap()` in library code. Use `.expect("reason")` to document
+      the invariant, or propagate the error with `?`.
+    metadata:
+      category: best-practice
+      references:
+        - https://rust-lang.github.io/api-guidelines/
+    paths:
+      include:
+        - src/
+    patterns:
+      - pattern: $EXPR.unwrap()
+      - pattern-not-inside: |
+          mod tests { ... }
+
+  - id: rust-no-development-artifacts
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Remove development artifacts before merging: `dbg!`, `todo!`, and
+      `unimplemented!` should not reach production code.
+    metadata:
+      category: correctness
+    pattern-either:
+      - pattern: dbg!(...)
+      - pattern: todo!(...)
+      - pattern: unimplemented!(...)
+
+  - id: rust-no-transmute
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      `std::mem::transmute` bypasses the type system and is a common source of
+      undefined behavior. Use a safe conversion such as `from_*`/`into()` or an
+      explicit `unsafe` primitive with a documented invariant instead.
+    metadata:
+      category: security
+      references:
+        - https://doc.rust-lang.org/std/mem/fn.transmute.html
+    pattern-either:
+      - pattern: std::mem::transmute::<$T, $U>($EXPR)
+      - pattern: std::mem::transmute($EXPR)
+      - pattern: mem::transmute::<$T, $U>($EXPR)
+      - pattern: mem::transmute($EXPR)
+
+  - id: rust-no-shell-command
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Do not spawn an interactive shell. Pass arguments directly to
+      `Command::new` to avoid shell-injection vulnerabilities.
+    metadata:
+      category: security
+      references:
+        - https://doc.rust-lang.org/std/process/struct.Command.html
+    pattern-either:
+      - pattern: std::process::Command::new("sh")
+      - pattern: std::process::Command::new("bash")
+      - pattern: std::process::Command::new("zsh")
+      - pattern: Command::new("sh")
+      - pattern: Command::new("bash")
+      - pattern: Command::new("zsh")
+
+  - id: rust-no-panic-in-library
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Library code should return an error instead of panicking. Propagate the
+      failure with `?` (or an explicit `Result`) so callers can handle it.
+    metadata:
+      category: reliability
+    paths:
+      include:
+        - src/
+      exclude:
+        - "**/src/main.rs"
+        - "**/src/bin/"
+    patterns:
+      - pattern: panic!(...)
+      - pattern-not-inside: |
+          mod tests { ... }
+
+  - id: rust-no-print-in-library
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Library code should not write directly to stdout/stderr. Return data to the
+      caller or use a logging facade so the embedding application controls output.
+    metadata:
+      category: best-practice
+    paths:
+      include:
+        - src/
+      exclude:
+        - "**/src/main.rs"
+        - "**/src/bin/"
+    patterns:
+      - pattern-either:
+          - pattern: println!(...)
+          - pattern: print!(...)
+          - pattern: eprintln!(...)
+          - pattern: eprint!(...)
+      - pattern-not-inside: |
+          mod tests { ... }
+
+  - id: rust-no-process-exit-in-library
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Library code must not terminate the process. Return an error and let the
+      binary decide how to exit.
+    metadata:
+      category: reliability
+    paths:
+      include:
+        - src/
+      exclude:
+        - "**/src/main.rs"
+        - "**/src/bin/"
+    pattern: std::process::exit(...)
