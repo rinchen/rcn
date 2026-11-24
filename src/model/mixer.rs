@@ -37,6 +37,12 @@ pub const W_INIT: i32 = 1 << WEIGHT_Q;
 /// Per-bit grad scaling: grad_q16 = lr·scale·err·stretch_q10 · 2^(WEIGHT_Q - STRETCH_Q).
 pub const GRAD_SCALE: i32 = WEIGHT_Q - STRETCH_Q; // = 6
 
+/// Integer squash constants: map fixed-point accumulator (Q26) to squash table index [0, 4095].
+/// idx = (acc_q + 7*2^26) * 4095 / (14 * 2^26)
+const SQUASH_SCALE_NUM: i64 = 4095;
+const SQUASH_SCALE_DEN: i64 = 14 << ACC_SHIFT; // 14 * 2^26
+const SQUASH_OFFSET: i64 = 7 << ACC_SHIFT; // 7 * 2^26
+
 /// Shared stretch/squash tables (12-bit probability ↔ logit).
 /// These are identical for every mixer instance, so we allocate once globally.
 static STRETCH_Q10: std::sync::OnceLock<[i16; 4096]> = std::sync::OnceLock::new();
@@ -241,16 +247,21 @@ impl LogisticMixer {
 
     #[inline]
     fn squash_of(&self, acc_q: i64) -> u16 {
-        // acc_float = acc_q / 2^ACC_SHIFT (logits). Map to a table index in [0,4095].
-        let acc = acc_q as f32 / ((1i64 << ACC_SHIFT) as f32);
-        let idx = ((acc + 7.0) / 14.0 * 4095.0).clamp(0.0, 4095.0) as usize;
+        // Integer arithmetic: acc_float = acc_q / 2^26
+        // Table index = (acc_float + 7) / 14 * 4095
+        // = (acc_q/2^26 + 7) / 14 * 4095
+        // = (acc_q + 7*2^26) / 14 * 4095 / 2^26
+        // = (acc_q + 7*2^26) * 4095 / (14 * 2^26)
+        // 14 * 2^26 = 939524096
+        // 7 * 2^26 = 469762048
+        let idx = ((acc_q + SQUASH_OFFSET) * SQUASH_SCALE_NUM / SQUASH_SCALE_DEN).clamp(0, 4095) as usize;
         squash_table()[idx]
     }
 
     /// Mix `probs` (one P(bit==1) per model, each in `[1,4095]`) → fused P in `[1,4095]`.
     /// `bit_pos` is the 0-based MSB-first bit position within the current byte.
     ///
-    /// This version precomputes stretch values to avoid repeated table lookups.
+    /// This version computes stretch values on-the-fly in a single loop.
     #[must_use]
     #[inline(always)]
     pub fn mix(&self, probs: &[u16], bit_pos: u8) -> u16 {
@@ -264,22 +275,18 @@ impl LogisticMixer {
     /// call [`update`](Self::update) for the *same* (`probs`, `bit_pos`) can reuse
     /// the returned `acc` instead of letting `update` recompute the dot product.
     ///
-    /// This version precomputes stretch values to avoid repeated table lookups.
+    /// Single-pass: computes stretch and accumulates in one loop.
     #[must_use]
     #[inline(always)]
     pub fn mix_acc(&self, probs: &[u16], bit_pos: u8) -> (i64, u16) {
         let b = usize::from(bit_pos.min(7));
         let mut acc: i64 = 0;
-        
-        // Precompute stretch values to avoid repeated table lookups
-        let mut stretches = [0i16; 16]; // Max 16 models (matches our usage)
-        for (i, &p) in probs.iter().enumerate().take(16) {
-            stretches[i] = self.stretch_of(p);
-        }
+        let stretch_lut = stretch_table();
         
         for (i, &p) in probs.iter().enumerate() {
+            let stretch = stretch_lut[(p as usize).clamp(1, 4095)];
             let w = self.weights[i] + self.pos_weights[i][b];
-            acc += i64::from(w) * i64::from(stretches[i]);
+            acc += i64::from(w) * i64::from(stretch);
         }
         (acc, self.squash_of(acc))
     }
@@ -299,7 +306,7 @@ impl LogisticMixer {
     /// (from [`mix_acc`](Self::mix_acc) with the same inputs) is supplied by the
     /// caller so the dot product is not recomputed a second time.
     ///
-    /// This version precomputes stretch values to avoid repeated table lookups.
+    /// Single-pass: computes stretch values on-the-fly in a single loop.
     pub fn update_from_acc(&mut self, probs: &[u16], bit: bool, bit_pos: u8, acc: i64) -> u16 {
         let b = usize::from(bit_pos.min(7));
         let target = if bit { 1.0f32 } else { 0.0 };
@@ -311,14 +318,10 @@ impl LogisticMixer {
         // Grad in weight units (Q16) from a stretch in Q10:
         //   grad_q16 = lr·scale·err·stretch_q10 · 2^(WEIGHT_Q - STRETCH_Q)
         // WEIGHT_Q - STRETCH_Q = 6, so scale by 64.
-        // Precompute stretch values to avoid repeated table lookups.
-        let mut stretches = [0i16; 16]; // Max 16 models (matches our usage)
-        for (i, &p) in probs.iter().enumerate().take(16) {
-            stretches[i] = self.stretch_of(p);
-        }
+        let stretch_lut = stretch_table();
         for (i, &p) in probs.iter().enumerate() {
             let scale = self.lr_scales[i];
-            let stretch_q10 = i32::from(stretches[i]);
+            let stretch_q10 = i32::from(stretch_lut[(p as usize).clamp(1, 4095)]);
             // lr·scale·err is f32; multiply by stretch_q10·64, then round to i32.
             let delta = (self.lr * scale * err * stretch_q10 as f32 * (1 << GRAD_SCALE) as f32).round();
             let d = delta.clamp(i32::MIN as f32, i32::MAX as f32) as i32;
@@ -346,14 +349,14 @@ impl LogisticMixer {
         let b = usize::from(bit_pos.min(7));
         let mut acc: i64 = 0;
         let mut stretches = [0i16; 16];
-        for (i, &p) in probs.iter().enumerate().take(16) {
-            stretches[i] = stretch_table()[(p as usize).clamp(1, 4095)];
-        }
-        for (i, &_p) in probs.iter().enumerate() {
+        let stretch_lut = stretch_table();
+        for (i, &p) in probs.iter().enumerate() {
+            let stretch = stretch_lut[(p as usize).clamp(1, 4095)];
+            stretches[i] = stretch;
             let w = weights[base + i] + pos_weights[base + i][b];
-            acc += i64::from(w) * i64::from(stretches[i]);
+            acc += i64::from(w) * i64::from(stretch);
         }
-        let q = squash_table()[((acc as f32 / ((1i64 << ACC_SHIFT) as f32) + 7.0) / 14.0 * 4095.0).clamp(0.0, 4095.0) as usize];
+        let q = squash_table()[(((acc + SQUASH_OFFSET) * SQUASH_SCALE_NUM / SQUASH_SCALE_DEN).clamp(0, 4095)) as usize];
         (acc, q, stretches)
     }
 
@@ -369,14 +372,14 @@ impl LogisticMixer {
         let target = if bit { 1.0f32 } else { 0.0 };
         let mut acc: i64 = 0;
         let mut stretches = [0i16; 16];
-        for (i, &p) in probs.iter().enumerate().take(16) {
-            stretches[i] = stretch_table()[(p as usize).clamp(1, 4095)];
-        }
-        for (i, &_p) in probs.iter().enumerate() {
+        let stretch_lut = stretch_table();
+        for (i, &p) in probs.iter().enumerate() {
+            let stretch = stretch_lut[(p as usize).clamp(1, 4095)];
+            stretches[i] = stretch;
             let w = weights[base + i] + pos_weights[base + i][b];
-            acc += i64::from(w) * i64::from(stretches[i]);
+            acc += i64::from(w) * i64::from(stretch);
         }
-        let q = squash_table()[((acc as f32 / ((1i64 << ACC_SHIFT) as f32) + 7.0) / 14.0 * 4095.0).clamp(0.0, 4095.0) as usize];
+        let q = squash_table()[(((acc + SQUASH_OFFSET) * SQUASH_SCALE_NUM / SQUASH_SCALE_DEN).clamp(0, 4095)) as usize];
         let pred = f32::from(q) / 4095.0;
         let err = target - pred;
         for (i, &_p) in probs.iter().enumerate() {
@@ -401,7 +404,7 @@ impl LogisticMixer {
     ) -> u16 {
         let b = usize::from(bit_pos.min(7));
         let target = if bit { 1.0f32 } else { 0.0 };
-        let q = squash_table()[((acc as f32 / ((1i64 << ACC_SHIFT) as f32) + 7.0) / 14.0 * 4095.0).clamp(0.0, 4095.0) as usize];
+        let q = squash_table()[(((acc + SQUASH_OFFSET) * SQUASH_SCALE_NUM / SQUASH_SCALE_DEN).clamp(0, 4095)) as usize];
         let pred = f32::from(q) / 4095.0;
         let err = target - pred;
         for (i, &_p) in probs.iter().enumerate() {

@@ -42,15 +42,31 @@ fn bit_table(p1: u16) -> &'static FrequencyTable {
 
 /// Bit-level arithmetic encoder over rANS.
 pub struct BitEncoder {
-    pending: Vec<(bool, u16)>, // (bit, predicted P(bit==1)); fed in reverse on finish()
+    pending_bits: Vec<u8>,    // packed bits (LSB first within each byte)
+    pending_probs: Vec<u16>,  // corresponding probabilities
+    bit_count: usize,
 }
 
 impl BitEncoder {
+    /// Create a new bit encoder with capacity for `cap` bits.
+    #[must_use]
+    pub fn with_capacity(cap: usize) -> Self {
+        // Pack 8 bits per byte for bits, 1 u16 per bit for probs
+        let bytes_needed = (cap + 7) / 8;
+        Self {
+            pending_bits: Vec::with_capacity(bytes_needed),
+            pending_probs: Vec::with_capacity(cap),
+            bit_count: 0,
+        }
+    }
+
     /// Create a new bit encoder.
     #[must_use]
     pub const fn new() -> Self {
         Self {
-            pending: Vec::new(),
+            pending_bits: Vec::new(),
+            pending_probs: Vec::new(),
+            bit_count: 0,
         }
     }
 
@@ -59,8 +75,19 @@ impl BitEncoder {
     /// `p` is the predicted probability of bit==1, in `[1, 4095]` (12-bit). Bits are
     /// fed to the underlying rANS encoder in reverse order, so they are buffered here
     /// and flushed by [`finish`](Self::finish).
+    #[inline]
     pub fn encode_bit(&mut self, bit: bool, p: u16) {
-        self.pending.push((bit, p));
+        // Pack bit into pending_bits
+        let byte_idx = self.bit_count >> 3;
+        let bit_idx = self.bit_count & 7;
+        if byte_idx >= self.pending_bits.len() {
+            self.pending_bits.push(0);
+        }
+        if bit {
+            self.pending_bits[byte_idx] |= 1 << bit_idx;
+        }
+        self.pending_probs.push(p);
+        self.bit_count += 1;
     }
 
     /// Finalize, returning the entropy-coded byte stream.
@@ -73,7 +100,11 @@ impl BitEncoder {
     pub fn finish(self) -> Vec<u8> {
         let mut enc = RansEncoder::new();
         // Feed in reverse: the last buffered bit is encoded first.
-        for &(bit, p) in self.pending.iter().rev() {
+        for i in (0..self.bit_count).rev() {
+            let byte_idx = i >> 3;
+            let bit_idx = i & 7;
+            let bit = (self.pending_bits[byte_idx] >> bit_idx) & 1 != 0;
+            let p = self.pending_probs[i];
             let table = bit_table(p);
             enc.put(u32::from(bit), table)
                 .expect("rANS put cannot fail for a valid 2-symbol table");

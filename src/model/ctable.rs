@@ -78,9 +78,7 @@ impl CtxTable {
             for g in &self.gen {
                 g.set(0);
             }
-            self.cur.set(1);
-        } else {
-            self.cur.set(nxt);
         }
+        self.cur.set(nxt);
     }
 }

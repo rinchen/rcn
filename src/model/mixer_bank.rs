@@ -187,7 +187,7 @@ impl MixerBank {
     #[inline]
     fn current_bank_id(&self, bit_pos: u8) -> usize {
         let order1 = self.asm.prev_byte();
-        let order2 = self.asm.last(2).first().copied().unwrap_or(0);
+        let order2 = self.asm.prev_prev_byte();
         let byte_class = if self.asm.has_byte() {
             ByteClass::classify(self.asm.last_byte())
         } else {
