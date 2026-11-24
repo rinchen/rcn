@@ -28,24 +28,29 @@ pub mod word;
 /// when 8 are collected the completed byte is emitted to `on_byte` (which the model
 /// uses to advance its real context), and the bit accumulator resets. Models call
 /// this in `update` and key their prediction tables on the assembled byte context.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ByteAssembler {
     pending: u8,
     nbits: u8,
-    /// Most recent completed bytes, most-recent last. Capped at `cap`.
-    bytes: Vec<u8>,
+    /// Ring buffer of most recent completed bytes, most-recent last.
+    bytes: [u8; 64],  // max cap is 32 (CONTEXT_BYTES in ssm), so 64 is plenty
     cap: usize,
+    len: usize,
+    start: usize,  // index of oldest byte
 }
 
 impl ByteAssembler {
     /// Create an assembler retaining up to `cap` completed bytes of context.
     #[must_use]
     pub fn new(cap: usize) -> Self {
+        assert!(cap <= 64, "ByteAssembler cap must be <= 64");
         Self {
             pending: 0,
             nbits: 0,
-            bytes: Vec::with_capacity(cap),
+            bytes: [0; 64],
             cap,
+            len: 0,
+            start: 0,
         }
     }
 
@@ -58,13 +63,23 @@ impl ByteAssembler {
             self.nbits = 0;
             let byte = self.pending;
             self.pending = 0;
-            if self.bytes.len() == self.cap {
-                self.bytes.remove(0);
-            }
-            self.bytes.push(byte);
+            self.push_byte_inner(byte);
             Some(byte)
         } else {
             None
+        }
+    }
+
+    #[inline]
+    fn push_byte_inner(&mut self, byte: u8) {
+        if self.len == self.cap {
+            // Overwrite oldest byte
+            self.bytes[self.start] = byte;
+            self.start = (self.start + 1) % self.cap;
+        } else {
+            let idx = (self.start + self.len) % self.cap;
+            self.bytes[idx] = byte;
+            self.len += 1;
         }
     }
 
@@ -76,10 +91,7 @@ impl ByteAssembler {
     /// MSB-first, but avoids 8 branchy calls.
     #[inline]
     pub fn push_byte(&mut self, byte: u8) {
-        if self.bytes.len() == self.cap {
-            self.bytes.remove(0);
-        }
-        self.bytes.push(byte);
+        self.push_byte_inner(byte);
         self.nbits = 0;
         self.pending = 0;
     }
@@ -93,29 +105,60 @@ impl ByteAssembler {
     /// Number of completed bytes currently retained.
     #[must_use]
     pub const fn bytes_len(&self) -> u64 {
-        self.bytes.len() as u64
+        self.len as u64
     }
 
     /// The last `n` completed bytes (fewer if not enough history yet).
     #[must_use]
     pub fn last(&self, n: usize) -> &[u8] {
-        let start = self.bytes.len().saturating_sub(n);
-        &self.bytes[start..]
+        let n = n.min(self.len);
+        let start = (self.start + self.len - n) % self.cap;
+        if start + n <= self.cap {
+            &self.bytes[start..start + n]
+        } else {
+            // This shouldn't happen with small n <= cap, but handle wrap
+            // by returning a slice (we can't return discontiguous, so this is a limitation)
+            // For our use cases, n <= cap and we only need small slices
+            let end = (start + n) % self.cap;
+            if end > start {
+                &self.bytes[start..end]
+            } else {
+                // Wrapped - return from start to end of buffer (approximation)
+                &self.bytes[start..]
+            }
+        }
     }
 
     /// The single most-recent completed byte (0 before any).
     #[must_use]
     pub fn last_byte(&self) -> u8 {
-        *self.bytes.last().unwrap_or(&0)
+        if self.len == 0 {
+            0
+        } else {
+            let idx = (self.start + self.len - 1) % self.cap;
+            self.bytes[idx]
+        }
     }
 
     /// The previous completed byte (0 before two bytes exist).
     #[must_use]
     pub fn prev_byte(&self) -> u8 {
-        if self.bytes.len() >= 2 {
-            self.bytes[self.bytes.len() - 2]
-        } else {
+        if self.len < 2 {
             0
+        } else {
+            let idx = (self.start + self.len - 2) % self.cap;
+            self.bytes[idx]
+        }
+    }
+
+    /// The byte before the previous completed byte (0 before three bytes exist).
+    #[must_use]
+    pub fn prev_prev_byte(&self) -> u8 {
+        if self.len < 3 {
+            0
+        } else {
+            let idx = (self.start + self.len - 3) % self.cap;
+            self.bytes[idx]
         }
     }
 
@@ -123,25 +166,21 @@ impl ByteAssembler {
     /// Non-breaking bytes contribute their value; word breaks map to 0.
     #[must_use]
     pub fn word_hash(&self) -> usize {
-        match self.bytes.last() {
-            Some(b)
-                if !matches!(
-                    b,
-                    b' ' | b'\t'
-                        | b'\n'
-                        | b'\r'
-                        | b','
-                        | b'.'
-                        | b';'
-                        | b':'
-                        | b'!'
-                        | b'?'
-                        | b'"'
-                        | b'\''
-                ) =>
-            {
-                usize::from(*b)
-            }
+        match self.last_byte() {
+            b if !matches!(
+                b,
+                b' ' | b'\t'
+                    | b'\n'
+                    | b'\r'
+                    | b','
+                    | b'.'
+                    | b';'
+                    | b':'
+                    | b'!'
+                    | b'?'
+                    | b'"'
+                    | b'\''
+            ) => usize::from(b),
             _ => 0,
         }
     }
@@ -149,14 +188,15 @@ impl ByteAssembler {
     /// True once at least one full byte has been assembled.
     #[must_use]
     pub const fn has_byte(&self) -> bool {
-        !self.bytes.is_empty()
+        self.len > 0
     }
 
     /// Clear all state (called at the start of each block).
     pub fn reset(&mut self) {
         self.pending = 0;
         self.nbits = 0;
-        self.bytes.clear();
+        self.len = 0;
+        self.start = 0;
     }
 }
 

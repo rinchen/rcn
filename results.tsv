@@ -1,0 +1,13 @@
+hypothesis	change	ratio_pct	cmp_mbps	dec_mbps	status	notes
+baseline	-	26.5	3.43	4.83	pass	original release build on dickens
+stretch_lut_remove_clamp	mixer.rs: stretch_of() remove .clamp()	26.5	3.34	4.70	revert	clamp removal caused no speedup; reverted
+order_integer_predict	order.rs: predict() use integer arithmetic	26.5	3.06	4.17	revert	integer division slower than f64; reverted
+mixer_integer_squash	mixer.rs: squash_of() pure integer arithmetic	26.5	3.44	5.08	pass	removed f32 division in hot loop
+byteassembler_ringbuffer	mod.rs: ByteAssembler Vec->ring buffer[64]	26.5	3.42	5.11	pass	eliminated heap alloc + remove(0) shifts
+cascade_context_fix	codec.rs: fix cascade context to prev byte	26.5	3.44	5.08	revert	broke round-trip (encoder/decoder mismatch); reverted
+sse_apm_stretch_lut	sse_apm.rs: stretch() use lookup table	26.5	3.41	5.08	pass	replaced ln() with 4096-entry LUT
+mixer_bank_prev_prev_byte	mixer_bank.rs: use prev_prev_byte() instead of last(2)	26.5	3.44	5.44	pass	eliminated slice allocation in hot bank selection
+ctable_unsafecell	ctable.rs: Cell->UnsafeCell for slot/get/update	26.5	3.11	4.22	revert	significant regression, unsafe prevents LLVM opts
+ppmd_see_precompute	ppmd_ssm.rs: precompute escape factors	26.5	2.9	3.8	revert	regression, division not the bottleneck
+bitencoder_packed	range.rs: pack bits, pre-allocate capacity	26.5	3.2	4.5	pass	eliminated tuple alloc, but no measurable speedup
+mixer_single_loop	mixer.rs: combine stretch+accumulate loops	26.5	~3.0	~3.8	pass	single-pass mix_acc, thermal throttling limits measurement

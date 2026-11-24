@@ -1000,7 +1000,9 @@ fn encode_block_plain(
         m.prepare_block(block);
     }
 
-    let mut enc = BitEncoder::new();
+    // Estimate ~1.5 bits per byte after compression (rough guess for capacity)
+    let est_bits = block.len() * 3 / 2;
+    let mut enc = BitEncoder::with_capacity(est_bits);
     let mut probs: [u16; 12] = [2048; 12];
     let n = models.len();
     let lzp_conf_default = 2048u16;
@@ -1079,7 +1081,9 @@ fn encode_block_with_matches(
     }
 
     // rANS-encode only literal bytes (skip matched regions).
-    let mut enc = BitEncoder::new();
+    // Estimate ~1.5 bits per byte after compression (rough guess for capacity)
+    let est_bits = block.len() * 3 / 2;
+    let mut enc = BitEncoder::with_capacity(est_bits);
     let mut probs: [u16; 12] = [2048; 12];
     let n = models.len();
     let lzp_conf_default = 2048u16;

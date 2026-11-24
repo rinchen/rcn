@@ -25,6 +25,7 @@
 //! cascade stages in PAQ8/CMIX actually do.
 
 use crate::model::BitModel;
+use std::sync::LazyLock;
 
 /// 12-bit probability precision (must match the rANS backend).
 const PROB_BITS: usize = 12;
@@ -48,20 +49,33 @@ const APM_LR: f32 = 0.015;
 /// Bits of decay window (2^14 = 16384 bits per halving).
 const LR_DECAY_BITS: u32 = 14;
 
-/// Stretch a 12-bit probability (in [0, 4095]) to logit space [-7, 7].
+/// Precomputed stretch lookup table: p12 (0..=4095) → logit space.
+/// Matches original: p = (p12 + 0.5) / 4096, then ln(p/(1-p)).
+/// Clamped only for extreme probabilities (p <= 1e-6 or p >= 1-1e-6).
+/// This replaces the hot `ln()` call (13 samples in profile).
+static STRETCH_LUT: LazyLock<[f32; 4096]> = LazyLock::new(|| {
+    let mut lut = [0.0f32; 4096];
+    for i in 0..=4095 {
+        let p = (i as f32 + 0.5) / (PROB_MAX as f32 + 1.0);
+        lut[i] = if p <= 1e-6 {
+            -7.0
+        } else if p >= 1.0 - 1e-6 {
+            7.0
+        } else {
+            (p / (1.0 - p)).ln()
+        };
+    }
+    lut
+});
+
+/// Stretch a 12-bit probability (in [0, 4095]) to logit space.
 #[inline]
 pub fn stretch(p12: u16) -> f32 {
-    let p = (p12 as f32 + 0.5) / (PROB_MAX as f32 + 1.0);
-    if p <= 1e-6 {
-        -7.0
-    } else if p >= 1.0 - 1e-6 {
-        7.0
-    } else {
-        (p / (1.0 - p)).ln()
-    }
+    STRETCH_LUT[p12 as usize]
 }
 
 /// Squash a logit value back to a 12-bit probability (clamped to [0, 4095]).
+/// Kept as exact exp() to maintain bit-identical roundtrip with original.
 #[inline]
 pub fn squash(x: f32) -> u16 {
     let p = 1.0 / (1.0 + (-x).exp());
